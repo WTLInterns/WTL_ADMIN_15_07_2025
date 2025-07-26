@@ -166,6 +166,16 @@ const Layout = ({ children=null }) => {
                 Visitor
                   </Link>
                 </li>
+
+                 <li>
+                  <Link
+                    href="/enquiry"
+                    className="flex items-center py-2 px-4 hover:bg-blue-100 rounded"
+                  >
+                    <FaUsers className="mr-2" />
+                Enquiry
+                  </Link>
+                </li>
               </ul>
             )}
           </li>
