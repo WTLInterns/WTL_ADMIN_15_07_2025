@@ -41,6 +41,10 @@ const PricingManagement = () => {
   const [showServiceCharge, setShowServiceCharge] = useState(false);
   const [showGST, setShowGST] = useState(false);
 
+  // Success popup state
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+
   const [formData, setFormData] = useState<FormData>({
     minDistance: '',
     maxDistance: '',
@@ -285,7 +289,15 @@ const PricingManagement = () => {
       if (response.ok) {
         const data = await response.json();
         setExistingPricing(data);
-        setSuccess(existingPricing ? 'Pricing updated successfully!' : 'Pricing created successfully!');
+
+        // ✅ Show success popup instead of setting success state
+        setShowSuccessPopup(true);
+        setSuccessMessage(existingPricing ? 'Pricing updated successfully!' : 'Pricing created successfully!');
+
+        // Auto-hide popup after 3 seconds
+        setTimeout(() => {
+          setShowSuccessPopup(false);
+        }, 3000);
 
         // Update form with response data
         setFormData({
@@ -419,10 +431,13 @@ const PricingManagement = () => {
             </div>
 
             {(showServiceCharge || showGST) && (
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
                 <p className="text-sm text-blue-700">
-                  <strong>Note:</strong> These charges are for display purposes only and will not be saved to the database.
-                  Only the base prices will be stored.
+                  <strong>ℹ️ Note:</strong> These charges will be applied only to the pricing display for reference.
+                  The base rates saved to the database will remain unchanged.
+                  {showServiceCharge && ` Service Charge: +${SERVICE_CHARGE_RATE}%`}
+                  {showServiceCharge && showGST && ', '}
+                  {showGST && ` GST: +${GST_RATE}%`}
                 </p>
               </div>
             )}
@@ -568,6 +583,42 @@ const PricingManagement = () => {
           </div>
         )}
         </div>
+
+        {/* ✅ SUCCESS POPUP */}
+        {showSuccessPopup && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md mx-4 transform animate-pulse">
+              <div className="text-center">
+                {/* Success Icon */}
+                <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
+                  <svg className="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                  </svg>
+                </div>
+
+                {/* Success Message */}
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Success!</h3>
+                <p className="text-gray-600 mb-6">{successMessage}</p>
+
+                {/* Progress Bar */}
+                <div className="w-full bg-gray-200 rounded-full h-1 mb-4">
+                  <div className="bg-green-600 h-1 rounded-full animate-pulse" style={{width: '100%'}}></div>
+                </div>
+
+                {/* Auto-close message */}
+                <p className="text-sm text-gray-500">This popup will close automatically in 3 seconds</p>
+
+                {/* Manual Close Button */}
+                <button
+                  onClick={() => setShowSuccessPopup(false)}
+                  className="mt-4 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 font-medium"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

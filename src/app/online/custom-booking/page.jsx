@@ -2371,9 +2371,11 @@ const Bookings = () => {
                         index % 2 === 0 ? "bg-gray-50" : "bg-white"
                       } hover:bg-gray-100`}
                     >
-                      <td className="px-2 py-2 text-gray-700 text-xs">
-                        {row.bookingId}
-                      </td>
+                       <span className="mr-3">{row.bookingId}</span>
+                       <br/>
+  <span className="font-bold">Name : {row.name}</span> <br/>
+  <span className="font-bold">Email : {row.email}</span> <br/>
+  <span className="font-bold">Phone : {row.phone}</span>
                       <td className="px-2 py-2 text-gray-700 text-xs">
                         {row.userPickup}
                       </td>

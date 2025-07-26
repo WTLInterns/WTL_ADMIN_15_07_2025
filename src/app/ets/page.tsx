@@ -111,7 +111,7 @@ export default function ETSAdminPanel() {
 
   useEffect(() => {
     setLoading(true);
-    fetch("https://ets.worldtriplink.com/schedule/getAllBookings")
+    fetch(" http://localhost:8081/schedule/getAllBookings")
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch bookings");
         return res.json();
@@ -176,7 +176,7 @@ export default function ETSAdminPanel() {
 
   const refreshData = () => {
     setLoading(true);
-    fetch("https://ets.worldtriplink.com/schedule/getAllBookings")
+    fetch(" http://localhost:8081/schedule/getAllBookings")
       .then((res) => res.json())
       .then((data) => {
         setBookings(data);

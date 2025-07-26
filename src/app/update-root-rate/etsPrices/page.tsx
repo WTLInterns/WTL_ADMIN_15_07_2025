@@ -32,10 +32,15 @@ const ETSPricing = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [existingPrice, setExistingPrice] = useState<ExistingPrice | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
 
   // Service charge and GST state
   const [showServiceCharge, setShowServiceCharge] = useState(false);
   const [showGST, setShowGST] = useState(false);
+
+  // Success popup state
+  const [showSuccessPopup, setShowSuccessPopup] = useState<boolean>(false);
+  const [successMessage, setSuccessMessage] = useState<string>("");
 
   // Service charge and GST rates
   const SERVICE_CHARGE_RATE = 10; // 10%
@@ -148,13 +153,14 @@ const ETSPricing = () => {
     }
 
     setIsSearching(true);
+    setHasSearched(true);
     try {
       // Use POST method with form data as the API expects POST mapping
       const formData = new FormData();
       formData.append('pickupLocation', pickup);
       formData.append('dropLocation', drop);
 
-      const response = await fetch('https://ets.worldtriplink.com/find', {
+      const response = await fetch(' http://localhost:8081/find', {
         method: 'POST',
         body: formData
       });
@@ -171,7 +177,7 @@ const ETSPricing = () => {
             suv: data.suv?.toString() || "",
             suvPlus: data.suvplus?.toString() || "",
           });
-          alert("Existing pricing found! You can update the values below.");
+          // Success message will be shown by the UI status display
         } else {
           setExistingPrice(null);
           setPrices({
@@ -181,7 +187,7 @@ const ETSPricing = () => {
             suv: "",
             suvPlus: "",
           });
-          alert("No existing pricing found. You can create new pricing below.");
+          // Success message will be shown by the UI status display
         }
       } else {
         setExistingPrice(null);
@@ -192,7 +198,7 @@ const ETSPricing = () => {
           suv: "",
           suvPlus: "",
         });
-        alert("No existing pricing found. You can create new pricing below.");
+        // Success message will be shown by the UI status display
       }
     } catch (err) {
       console.error("Search error:", err);
@@ -209,6 +215,20 @@ const ETSPricing = () => {
     return numericDistance * price;
   };
 
+  const calculateDistanceTotalWithCharges = (price: number): number | null => {
+    const baseTotal = calculateTotal(price);
+    if (!baseTotal) return null;
+
+    let finalTotal = baseTotal;
+    if (showServiceCharge) {
+      finalTotal += calculateServiceCharge(baseTotal);
+    }
+    if (showGST) {
+      finalTotal += calculateGST(baseTotal);
+    }
+    return finalTotal;
+  };
+
   // Submit form (update existing price)
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -218,8 +238,8 @@ const ETSPricing = () => {
       return;
     }
 
-    if (!existingPrice) {
-      alert("Please search for existing pricing first before updating.");
+    if (!hasSearched) {
+      alert("Please search for pricing data first.");
       return;
     }
 
@@ -246,30 +266,61 @@ const ETSPricing = () => {
     setIsSubmitting(true);
 
     try {
-      // Use the existing price data for location information to ensure consistency
-      const sourceCity = existingPrice?.sourceCity || "";
-      const sourceState = existingPrice?.sourceState || "";
-      const destinationCity = existingPrice?.destinationCity || "";
-      const destinationState = existingPrice?.desitnationState || existingPrice?.destinationState || "";
+      let apiUrl: string;
+      let method: string;
+      let queryParams: URLSearchParams;
 
-      // Build query parameters for update API
-      const queryParams = new URLSearchParams({
-        sourceState: sourceState,
-        destinationState: destinationState,
-        sourceCity: sourceCity,
-        destinationCity: destinationCity,
-        hatchbackPrice: parseInt(prices.hatchback).toString(),
-        sedanPrice: parseInt(prices.sedan).toString(),
-        sedanPremiumPrice: parseInt(prices.sedanPremium).toString(),
-        suvPrice: parseInt(prices.suv).toString(),
-        suvPlusPrice: parseInt(prices.suvPlus).toString(),
-        status: "active"
-      }).toString();
+      if (existingPrice) {
+        // UPDATE existing pricing
+        const sourceCity = existingPrice.sourceCity || "";
+        const sourceState = existingPrice.sourceState || "";
+        const destinationCity = existingPrice.destinationCity || "";
+        const destinationState = existingPrice.desitnationState || existingPrice.destinationState || "";
 
-      const apiUrl = `https://ets.worldtriplink.com/updatePrice/${(existingPrice).id}?${queryParams}`;
+        queryParams = new URLSearchParams({
+          sourceState: sourceState,
+          destinationState: destinationState,
+          sourceCity: sourceCity,
+          destinationCity: destinationCity,
+          hatchbackPrice: parseInt(prices.hatchback).toString(),
+          sedanPrice: parseInt(prices.sedan).toString(),
+          sedanPremiumPrice: parseInt(prices.sedanPremium).toString(),
+          suvPrice: parseInt(prices.suv).toString(),
+          suvPlusPrice: parseInt(prices.suvPlus).toString(),
+          status: "active"
+        });
+
+        apiUrl = ` http://localhost:8081/updatePrice/${existingPrice.id}?${queryParams.toString()}`;
+        method = 'PUT';
+      } else {
+        // CREATE new pricing
+        // Extract location info from pickup/drop strings
+        const pickupParts = pickup.split(",").map((part) => part.trim());
+        const dropParts = drop.split(",").map((part) => part.trim());
+        const sourceCity = pickupParts[0] || "";
+        const sourceState = pickupParts[1] || "";
+        const destinationCity = dropParts[0] || "";
+        const destinationState = dropParts[1] || "";
+
+        queryParams = new URLSearchParams({
+          sourceState: sourceState,
+          destinationState: destinationState,
+          sourceCity: sourceCity,
+          destinationCity: destinationCity,
+          hatchbackPrice: parseInt(prices.hatchback).toString(),
+          sedanPrice: parseInt(prices.sedan).toString(),
+          sedanPremiumPrice: parseInt(prices.sedanPremium).toString(),
+          suvPrice: parseInt(prices.suv).toString(),
+          suvPlusPrice: parseInt(prices.suvPlus).toString(),
+          status: "active"
+        });
+
+        apiUrl = ` http://localhost:8081/createPrice?${queryParams.toString()}`;
+        method = 'POST';
+      }
 
       const apiResponse = await fetch(apiUrl, {
-        method: 'PUT',
+        method,
         headers: {
           'Content-Type': 'application/json',
         }
@@ -284,7 +335,14 @@ const ETSPricing = () => {
       const result = await apiResponse.json();
       console.log("API Response:", result);
 
-      alert("ETS pricing updated successfully!");
+      // ✅ Show success popup instead of alert
+      setShowSuccessPopup(true);
+      setSuccessMessage(existingPrice ? "ETS pricing updated successfully!" : "ETS pricing created successfully!");
+
+      // Auto-hide popup after 3 seconds
+      setTimeout(() => {
+        setShowSuccessPopup(false);
+      }, 3000);
 
       // Update existing price with new data
       setExistingPrice(result);
@@ -389,7 +447,7 @@ const ETSPricing = () => {
             {distance && <div className="text-sm text-gray-600">Distance: {distance}</div>}
           </div>
 
-          {existingPrice && (
+          {hasSearched && existingPrice && (
             <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded">
               <h3 className="font-semibold text-green-800">Existing Pricing Found:</h3>
               <p className="text-sm text-green-700">
@@ -404,8 +462,20 @@ const ETSPricing = () => {
             </div>
           )}
 
+          {hasSearched && !existingPrice && (
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded">
+              <h3 className="font-semibold text-blue-800">No Existing Pricing Found</h3>
+              <p className="text-sm text-blue-700">
+                Route: {pickup} → {drop}
+              </p>
+              <p className="text-sm text-blue-700">
+                You can create new pricing for this route below.
+              </p>
+            </div>
+          )}
+
           {/* Service Charge and GST Options */}
-          {existingPrice && (
+          {hasSearched && (
             <div className="mt-6 bg-white border border-gray-200 rounded-lg p-4">
               <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <i className="fa fa-calculator text-green-500"></i>
@@ -441,19 +511,24 @@ const ETSPricing = () => {
               </div>
 
               {(showServiceCharge || showGST) && (
-                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
                   <p className="text-sm text-blue-700">
-                    <strong>Note:</strong> These charges are for display purposes only and will not be saved to the database.
-                    Only the base prices will be stored.
+                    <strong>ℹ️ Note:</strong> These charges will be applied only to the distance calculation display for reference.
+                    The base rates saved to the database will remain unchanged.
+                    {showServiceCharge && ` Service Charge: +${SERVICE_CHARGE_RATE}%`}
+                    {showServiceCharge && showGST && ', '}
+                    {showGST && ` GST: +${GST_RATE}%`}
                   </p>
                 </div>
               )}
             </div>
           )}
 
-          {existingPrice && (
+          {hasSearched && (
             <div className="mt-6">
-              <h2 className="text-xl font-semibold mb-4">Update Prices</h2>
+              <h2 className="text-xl font-semibold mb-4">
+                {existingPrice ? "Update Prices" : "Create New Prices"}
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 {["hatchback", "sedan", "sedanPremium", "suv", "suvPlus"].map((carType) => {
                   const basePrice = parseFloat(prices[carType as keyof typeof prices]) || 0;
@@ -485,7 +560,7 @@ const ETSPricing = () => {
                       )}
 
                       {/* Price Breakdown */}
-                      {basePrice > 0 && (showServiceCharge || showGST) && (
+                      {/* {basePrice > 0 && (showServiceCharge || showGST) && (
                         <div className="mt-2 p-3 bg-gray-50 rounded-lg text-xs space-y-1 border">
                           <div className="flex justify-between">
                             <span>Base Price:</span>
@@ -508,13 +583,42 @@ const ETSPricing = () => {
                             <span>{formatCurrency(totalWithCharges)}</span>
                           </div>
                         </div>
-                      )}
+                      )} */}
 
-                      {/* Distance-based calculation */}
+                      {/* Distance-based calculation with charges applied */}
                       {prices[carType as keyof typeof prices] && distance && (
-                        <div className="mt-2 text-sm text-gray-600 bg-yellow-50 p-2 rounded border">
-                          <div className="font-medium">Distance Calculation:</div>
-                          <div>Total: {calculateTotal(parseFloat(prices[carType as keyof typeof prices]) || 0)} INR (Price × Distance)</div>
+                        <div className="mt-2 text-sm bg-yellow-50 p-3 rounded border border-yellow-200">
+                          <div className="font-medium text-gray-800 mb-2">Distance Calculation:</div>
+                          <div className="space-y-1">
+                            <div className="flex justify-between">
+                              <span>Base Total (Price × Distance):</span>
+                              <span className="font-medium">₹{calculateTotal(parseFloat(prices[carType as keyof typeof prices]) || 0)?.toFixed(2)}</span>
+                            </div>
+                            {showServiceCharge && (
+                              <div className="flex justify-between text-blue-600">
+                                <span>Service Charge ({SERVICE_CHARGE_RATE}%):</span>
+                                <span>+₹{calculateServiceCharge(calculateTotal(parseFloat(prices[carType as keyof typeof prices]) || 0) || 0).toFixed(2)}</span>
+                              </div>
+                            )}
+                            {showGST && (
+                              <div className="flex justify-between text-green-600">
+                                <span>GST ({GST_RATE}%):</span>
+                                <span>+₹{calculateGST(calculateTotal(parseFloat(prices[carType as keyof typeof prices]) || 0) || 0).toFixed(2)}</span>
+                              </div>
+                            )}
+                            {(showServiceCharge || showGST) && (
+                              <div className="flex justify-between border-t pt-1 font-semibold text-gray-800">
+                                <span>Final Total:</span>
+                                <span>₹{calculateDistanceTotalWithCharges(parseFloat(prices[carType as keyof typeof prices]) || 0)?.toFixed(2)}</span>
+                              </div>
+                            )}
+                            {!showServiceCharge && !showGST && (
+                              <div className="flex justify-between font-semibold text-gray-800">
+                                <span>Total:</span>
+                                <span>₹{calculateTotal(parseFloat(prices[carType as keyof typeof prices]) || 0)?.toFixed(2)}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -524,18 +628,57 @@ const ETSPricing = () => {
             </div>
           )}
 
-          {existingPrice && (
+          {hasSearched && (
             <div className="mt-6">
               <button
                 type="submit"
                 disabled={isSubmitting}
                 className="px-6 py-3 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-green-400 transition-colors"
               >
-                {isSubmitting ? "Updating..." : "Update ETS Pricing"}
+                {isSubmitting
+                  ? (existingPrice ? "Updating..." : "Creating...")
+                  : (existingPrice ? "Update ETS Pricing" : "Create ETS Pricing")
+                }
               </button>
             </div>
           )}
         </form>
+
+        {/* ✅ SUCCESS POPUP */}
+        {showSuccessPopup && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md mx-4 transform animate-pulse">
+              <div className="text-center">
+                {/* Success Icon */}
+                <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
+                  <svg className="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                  </svg>
+                </div>
+
+                {/* Success Message */}
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Success!</h3>
+                <p className="text-gray-600 mb-6">{successMessage}</p>
+
+                {/* Progress Bar */}
+                <div className="w-full bg-gray-200 rounded-full h-1 mb-4">
+                  <div className="bg-green-600 h-1 rounded-full animate-pulse" style={{width: '100%'}}></div>
+                </div>
+
+                {/* Auto-close message */}
+                <p className="text-sm text-gray-500">This popup will close automatically in 3 seconds</p>
+
+                {/* Manual Close Button */}
+                <button
+                  onClick={() => setShowSuccessPopup(false)}
+                  className="mt-4 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 font-medium"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

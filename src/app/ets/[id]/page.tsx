@@ -504,13 +504,13 @@ export default function BookingDetailPage() {
       try {
         setLoading(true);
         // Try the specific booking endpoint first
-        const response = await fetch(`https://ets.worldtriplink.com/schedule/getId/${params.id}`);
+        const response = await fetch(` http://localhost:8081/schedule/getId/${params.id}`);
         if (response.ok) {
           const booking = await response.json();
           setBooking(booking);
         } else {
           // Fallback to getting all bookings and finding the specific one
-          const allBookingsResponse = await fetch("https://ets.worldtriplink.com/schedule/getAllBookings");
+          const allBookingsResponse = await fetch(" http://localhost:8081/schedule/getAllBookings");
           if (!allBookingsResponse.ok) throw new Error("Failed to fetch booking");
 
           const bookings = await allBookingsResponse.json();
@@ -602,7 +602,7 @@ export default function BookingDetailPage() {
     try {
       setAssigningVendor(vendorId);
       const response = await fetch(
-        `https://ets.worldtriplink.com/schedule/${booking.id}/assign-vendor/${vendorId}`,
+        ` http://localhost:8081/schedule/${booking.id}/assign-vendor/${vendorId}`,
         { 
           method: 'PUT',
           headers: {
@@ -656,7 +656,7 @@ export default function BookingDetailPage() {
       }
 
       // Refresh booking data to get updated info
-      const bookingResponse = await fetch(`https://ets.worldtriplink.com/schedule/getId/${booking.id}`);
+      const bookingResponse = await fetch(` http://localhost:8081/schedule/getId/${booking.id}`);
       if (bookingResponse.ok) {
         const updatedBooking = await bookingResponse.json();
         setBooking(updatedBooking);
@@ -698,7 +698,7 @@ export default function BookingDetailPage() {
       }
 
       // Refresh booking data to get updated info
-      const bookingResponse = await fetch(`https://ets.worldtriplink.com/schedule/getId/${booking.id}`);
+      const bookingResponse = await fetch(` http://localhost:8081/schedule/getId/${booking.id}`);
       if (bookingResponse.ok) {
         const updatedBooking = await bookingResponse.json();
         setBooking(updatedBooking);
